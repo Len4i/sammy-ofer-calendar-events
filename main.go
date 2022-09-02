@@ -119,29 +119,33 @@ func main() {
 		log.Fatalf("Unable to retrieve Calendar client: %v", err)
 	}
 
-	var year, day string
+	var year int
 	yearNow := time.Now().Year()
 	monthNow := int(time.Now().Month())
 	for _, d := range dates {
-		day = strings.Split(d, "/")[0]
+		
 		month, err := strconv.Atoi(strings.Split(d, "/")[1])
 		if err != nil {
 			log.Fatalf("can't convert month from scrapper to int: %v", err)
 		}
+		day, err := strconv.Atoi(strings.Split(d, "/")[0])
+		if err != nil {
+			log.Fatalf("can't convert day from scrapper to int: %v", err)
+		}
 		if month < monthNow {
-			i := yearNow + 1
-			year = strconv.Itoa(i)
+			year = yearNow + 1
 
 		} else {
-			year = strconv.Itoa(yearNow)
+			year = yearNow
 		}
+		date := time.Date(year, time.Month(month), day, 0,0,0,0, time.Local)
 
-		fmt.Println(year + "-" + strconv.Itoa(month) + "-" + day)
+		fmt.Println(date.Format("2006-01-02"))
 		if func() bool {
 			events, err := srv.Events.List("primary").ShowDeleted(false).
 				SingleEvents(true).Q(title).
-				TimeMin(year + "-" + strconv.Itoa(month) + "-" + day + "T00:00:00+03:00").
-				MaxResults(10).OrderBy("startTime").Do()
+				TimeMin(date.Format(time.RFC3339)).
+				MaxResults(1).OrderBy("startTime").Do()
 			if err != nil {
 				log.Fatalf("Unable to retrieve next ten of the user's events: %v", err)
 			}
@@ -155,17 +159,17 @@ func main() {
 		}() {
 			continue
 		}
-
 		event := &calendar.Event{
 			Summary: title,
 			Start: &calendar.EventDateTime{
-				Date:     year + "-" + strconv.Itoa(month) + "-" + day,
+				Date:     date.Format("2006-01-02"),
 				TimeZone: "Asia/Jerusalem",
 			},
 			End: &calendar.EventDateTime{
-				Date:     year + "-" + strconv.Itoa(month) + "-" + day,
+				Date:     date.Add( 24 * time.Hour).Format("2006-01-02"),
 				TimeZone: "Asia/Jerusalem",
-			},
+			}, 
+			
 		}
 
 		calendarId := "primary"
