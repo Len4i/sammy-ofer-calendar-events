@@ -1,4 +1,4 @@
-module github.com/Len4i/scrapper
+module github.com/Len4i/sammy-ofer-calendar-events
 
 go 1.18
 
