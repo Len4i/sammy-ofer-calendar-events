@@ -1,6 +1,6 @@
 module github.com/Len4i/sammy-ofer-calendar-events
 
-go 1.18
+go 1.24
 
 require (
 	github.com/gocolly/colly v1.2.0

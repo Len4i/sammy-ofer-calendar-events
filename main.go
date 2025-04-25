@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,8 +20,8 @@ import (
 
 const (
 	title  = "Sammy Ofer Football match"
-	url    = "https://www.haifa-stadium.com/schedule_of_matches_in_the_stadium/"
-	domain = "www.haifa-stadium.com"
+	url    = "https://www.haifa-stadium.co.il/%d7%9c%d7%95%d7%97_%d7%94%d7%9e%d7%a9%d7%97%d7%a7%d7%99%d7%9d_%d7%91%d7%90%d7%a6%d7%98%d7%93%d7%99%d7%95%d7%9f/"
+	domain = "www.haifa-stadium.co.il"
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -85,24 +84,29 @@ func main() {
 	c := colly.NewCollector(
 		colly.AllowedDomains(domain),
 	)
-	r, _ := regexp.Compile(`\d+\/\d+\s[0-9:]+`)
 
-	var dates []string
-	//c.OnHTML("body > div.elementor.elementor-284 > div > div > section.elementor-section.elementor-top-section.elementor-element.elementor-element-b31ab00.elementor-section-boxed.elementor-section-height-default.elementor-section-height-default > div > div > div > div > div > section > div > div > div.elementor-column.elementor-col-25.elementor-inner-column.elementor-element.elementor-element-8129b72 > div > div > div > div > div > p", func(e *colly.HTMLElement) {
-	c.OnHTML(".elementor-section-wrap", func(e *colly.HTMLElement) {
-		e.ForEach(".elementor-section.elementor-top-section.elementor-element", func(_ int, el *colly.HTMLElement) {
-			found := el.ChildText(".elementor-text-editor.elementor-clearfix")
-			match := r.FindString(found)
-			if strings.TrimSpace(match) != "" {
-				dates = append(dates, strings.Split(strings.TrimSpace(match), " ")[0])
-			}
-		})
+	dates := make(map[string]bool)
+	c.OnHTML(".elementor-column", func(e *colly.HTMLElement) {
+		dateText := e.ChildText(".elementor-widget-container")
+		dateRegex := regexp.MustCompile(`\b\d{1,2}/\d{1,2}/\d{2}\b`)
+		// timeRegex := regexp.MustCompile(`\b\d{2}:\d{2}\b`)
+
+		dateMatch := dateRegex.FindString(dateText)
+		// timeMatch := timeRegex.FindString(dateText)
+
+		// if dateMatch != "" && timeMatch != "" {
+		// 	dates = append(dates, fmt.Sprintf("%s %s", dateMatch, timeMatch))
+		// }
+		if dateMatch != "" {
+			dates[dateMatch] = true
+		}
 	})
 
 	c.Visit(url)
 
+	fmt.Println(dates)
 	ctx := context.Background()
-	b, err := os.ReadFile("/tmp/creds.json")
+	b, err := os.ReadFile("creds.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -119,26 +123,13 @@ func main() {
 		log.Fatalf("Unable to retrieve Calendar client: %v", err)
 	}
 
-	var year int
-	yearNow := time.Now().Year()
-	monthNow := int(time.Now().Month())
-	for _, d := range dates {
-		
-		month, err := strconv.Atoi(strings.Split(d, "/")[1])
+	for d, _ := range dates {
+		parsedDate, err := time.Parse("2/1/06", strings.Split(d, " ")[0])
 		if err != nil {
-			log.Fatalf("can't convert month from scrapper to int: %v", err)
+			log.Fatalf("Error parsing date: %v", err)
 		}
-		day, err := strconv.Atoi(strings.Split(d, "/")[0])
-		if err != nil {
-			log.Fatalf("can't convert day from scrapper to int: %v", err)
-		}
-		if month < monthNow {
-			year = yearNow + 1
 
-		} else {
-			year = yearNow
-		}
-		date := time.Date(year, time.Month(month), day, 0,0,0,0, time.Local)
+		date := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.Local)
 
 		fmt.Println(date.Format("2006-01-02"))
 		if func() bool {
@@ -166,10 +157,9 @@ func main() {
 				TimeZone: "Asia/Jerusalem",
 			},
 			End: &calendar.EventDateTime{
-				Date:     date.Add( 24 * time.Hour).Format("2006-01-02"),
+				Date:     date.Add(24 * time.Hour).Format("2006-01-02"),
 				TimeZone: "Asia/Jerusalem",
-			}, 
-			
+			},
 		}
 
 		calendarId := "primary"
